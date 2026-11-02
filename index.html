@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101b2d">
+<title>إدارة مصنع الغزل</title>
+<style>
+:root{--navy:#101b2d;--navy2:#172740;--gold:#d7ad58;--bg:#f3f5f8;--ink:#172033;--muted:#6b7280;--line:#e4e8ef;--white:#fff;--green:#16834a;--red:#c0392b}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Tahoma,Arial,sans-serif}
+header{background:linear-gradient(135deg,var(--navy),var(--navy2));color:white;padding:22px 18px 26px;border-bottom:4px solid var(--gold)}
+.wrap{max-width:900px;margin:auto;padding:0 14px}header .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px}
+h1{font-size:21px;margin:0 0 6px}header p{margin:0;color:#cbd5e1;font-size:13px}
+main{max-width:900px;margin:18px auto;padding:0 14px 40px}
+.card{background:white;border:1px solid var(--line);border-radius:15px;padding:17px;margin-bottom:14px;box-shadow:0 3px 12px #17203308}
+h2{font-size:17px;margin:0 0 14px}.muted{color:var(--muted);font-size:13px}
+label{display:block;font-size:13px;font-weight:bold;margin:12px 0 6px}
+input,select{width:100%;padding:12px;border:1px solid #cfd6e1;border-radius:10px;font:inherit;background:white;min-height:44px}
+button{border:0;border-radius:10px;padding:12px 16px;font:inherit;font-weight:bold;cursor:pointer}
+.primary{background:var(--navy);color:white}.gold{background:var(--gold);color:#1b2432}.secondary{background:#edf1f6;color:#243247}.danger{background:#fff0ee;color:var(--red)}
+button:disabled{opacity:.55;cursor:not-allowed}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.topline{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.pill{font-size:12px;border-radius:30px;padding:6px 10px;background:#e9f6ef;color:var(--green)}
+.notice{padding:11px 13px;border-radius:10px;background:#fff8e8;color:#78561a;font-size:13px;line-height:1.7;margin-bottom:12px}
+.error{background:#fff0ee;color:#9f2d23}.success{background:#eaf7ef;color:#176b3c}
+.hidden{display:none!important}.worker{border:1px solid var(--line);border-radius:12px;padding:13px;margin-top:10px}
+.worker strong{display:block;margin-bottom:5px}.worker .meta{font-size:13px;color:var(--muted);line-height:1.8}
+.stat{background:#f7f8fa;border-radius:10px;padding:12px}.stat b{display:block;font-size:20px;margin-top:5px}
+hr{border:0;border-top:1px solid var(--line);margin:16px 0}
+@media(max-width:560px){.grid{grid-template-columns:1fr}header .wrap{align-items:flex-start}h1{font-size:19px}.card{padding:14px}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+ <div><h1>مصنع الغزل</h1><p>نظام العمال والحضور والأجور</p></div>
+ <span class="pill" id="connection">غير متصل</span>
+</div></header>
+<main>
+ <section class="card" id="setupCard">
+  <h2>إعداد الاتصال بقاعدة البيانات</h2>
+  <div class="notice">أدخل <b>Publishable key</b> من Supabase. لا تضع هنا Secret key أو service_role key مطلقاً.</div>
+  <label>رابط المشروع</label><input id="projectUrl" value="https://prxtyfzfimhcxardlpgg.supabase.co" dir="ltr">
+  <label>Publishable key (أو anon public key القديم)</label><input id="apiKey" placeholder="sb_publishable_..." dir="ltr" autocomplete="off">
+  <div class="actions"><button class="primary" id="saveConfig">حفظ الاتصال</button></div>
+  <p class="muted">يُحفظ مفتاح النشر العام في هذا المتصفح فقط. حماية البيانات تعتمد على سياسات RLS داخل Supabase.</p>
+ </section>
+
+ <section class="card hidden" id="loginCard">
+  <h2>تسجيل الدخول</h2>
+  <label>البريد الإلكتروني</label><input id="email" type="email" placeholder="name@example.com" dir="ltr">
+  <label>كلمة المرور</label><input id="password" type="password" placeholder="كلمة المرور" dir="ltr">
+  <div class="actions"><button class="primary" id="loginBtn">دخول</button></div>
+  <div id="loginMsg" class="muted" aria-live="polite"></div>
+ </section>
+
+ <section id="app" class="hidden">
+  <div class="card">
+   <div class="topline"><div><h2 id="welcome">لوحة التحكم</h2><div class="muted" id="roleLabel"></div></div><button class="secondary" id="logoutBtn">تسجيل الخروج</button></div>
+  </div>
+  <section class="card" id="workerFormCard">
+   <div class="topline"><h2 id="formTitle">إضافة عامل</h2><span class="pill">إدارة العمال</span></div>
+   <form id="workerForm">
+    <input type="hidden" id="workerId">
+    <label for="workerName">اسم العامل</label><input id="workerName" required maxlength="120" placeholder="اكتب الاسم بالكامل">
+    <label for="workerJob">الوظيفة / الدور</label><input id="workerJob" maxlength="120" placeholder="مثلاً: مشغل ماكينة، عامل إنتاج">
+    <div id="rateField">
+     <label for="dailyRate">اليومية مقابل 12 ساعة (جنيه)</label><input id="dailyRate" type="number" min="0" step="0.01" placeholder="مثلاً 300">
+     <p class="muted" id="hourlyPreview">سعر الساعة يُحسب تلقائياً: اليومية ÷ 12</p>
+    </div>
+    <div class="actions"><button class="primary" type="submit" id="saveWorker">حفظ العامل</button><button class="secondary hidden" type="button" id="cancelEdit">إلغاء التعديل</button></div>
+   </form>
+   <div id="workerMsg" class="muted" aria-live="polite"></div>
+  </section>
+  <section class="card">
+   <div class="topline"><h2>قائمة العمال</h2><span class="pill" id="workerCount">0 عامل</span></div>
+   <div class="muted">العامل الموقوف يظل محفوظاً في السجلات ولا يظهر ضمن العمال النشطين للمشرف.</div>
+   <div id="workersList"><p class="muted">جاري تحميل البيانات...</p></div>
+  </section>
+  <section class="card" id="attendanceCard">
+   <div class="topline"><h2 id="attendanceTitle">تسجيل الحضور والانصراف</h2><span class="pill">الحضور</span></div>
+   <form id="attendanceForm">
+    <input type="hidden" id="attendanceId">
+    <label for="attendanceEmployee">العامل</label><select id="attendanceEmployee" required><option value="">اختر العامل</option></select>
+    <div class="grid">
+     <div><label for="attendanceDate">تاريخ العمل</label><input id="attendanceDate" type="date" required></div>
+     <div><label for="attendanceStatus">الحالة</label><select id="attendanceStatus"><option value="present">حاضر</option><option value="absent">غائب</option></select></div>
+    </div>
+    <div id="attendanceTimes" class="grid">
+     <div><label for="checkInAt">وقت الدخول الفعلي</label><input id="checkInAt" type="datetime-local"></div>
+     <div><label for="checkOutAt">وقت الانصراف الفعلي</label><input id="checkOutAt" type="datetime-local"></div>
+    </div>
+    <label for="attendanceNotes">ملاحظات (اختياري)</label><input id="attendanceNotes" maxlength="500" placeholder="ملاحظات عن الحضور أو التأخير">
+    <div class="actions"><button class="primary" id="saveAttendance" type="submit">حفظ سجل الحضور</button><button class="secondary hidden" id="cancelAttendanceEdit" type="button">إلغاء التعديل</button></div>
+   </form>
+   <div class="muted" id="attendanceMsg" aria-live="polite"></div>
+   <hr>
+   <div class="topline"><h2>آخر سجلات الحضور</h2><button class="secondary" id="refreshAttendance" type="button">تحديث</button></div>
+   <div id="attendanceList"><p class="muted">جاري تحميل السجلات...</p></div>
+  </section>
+ </section>
+ <div class="muted" style="text-align:center;padding:10px">نظام مصنع الغزل — إدارة العمال وتسجيل الحضور والانصراف</div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(() => {
+ const $ = id => document.getElementById(id);
+ let sb=null, currentUser=null, role=null, workers=[];
+ const setMsg=(id,msg,kind='')=>{const el=$(id);el.textContent=msg;el.className=kind?kind:'muted';};
+ function configView(){ $('setupCard').classList.remove('hidden');$('loginCard').classList.add('hidden');$('app').classList.add('hidden');}
+ function loginView(){ $('setupCard').classList.add('hidden');$('loginCard').classList.remove('hidden');$('app').classList.add('hidden');$('connection').textContent='متصل بقاعدة البيانات';}
+ function appView(){ $('setupCard').classList.add('hidden');$('loginCard').classList.add('hidden');$('app').classList.remove('hidden');$('connection').textContent='متصل'; }
+ function money(n){return Number(n||0).toLocaleString('ar-EG',{maximumFractionDigits:2})+' ج';}
+ async function connect(url,key){
+   if(!window.supabase){throw new Error('تعذر تحميل مكتبة الاتصال. تحقق من الإنترنت ثم أعد فتح الصفحة.');}
+   sb=window.supabase.createClient(url.replace(/\/$/,''),key);
+   const {data:{session},error}=await sb.auth.getSession(); if(error) throw error;
+   if(session) await loadProfile(); else loginView();
+ }
+ async function loadProfile(){
+   const {data:{user}}=await sb.auth.getUser(); currentUser=user;
+   const {data,error}=await sb.from('profiles').select('full_name,role').eq('user_id',user.id).maybeSingle();
+   if(error) throw error;
+   if(!data || !['admin','supervisor'].includes(data.role)){await sb.auth.signOut();throw new Error('هذا الحساب غير مربوط بدور الإدارة أو المشرف في جدول profiles.');}
+   role=data.role;
+   appView();
+   $('welcome').textContent='أهلاً '+(data.full_name||'بك');
+   $('roleLabel').textContent=role==='admin'?'مدير النظام — صلاحية كاملة':'مشرف المصنع — تسجيل التشغيل';
+   $('workerFormCard').classList.toggle('hidden',role!=='admin');
+   $('rateField').classList.toggle('hidden',role!=='admin');
+   await loadWorkers();
+   resetAttendanceForm();
+   await loadAttendance();
+ }
+ async function loadWorkers(){
+   $('workersList').innerHTML='<p class="muted">جاري تحميل العمال...</p>';
+   let q=sb.from('employees').select('id,full_name,job_title,active,created_at').order('full_name');
+   const {data,error}=await q;
+   if(error) throw error;
+   workers=data||[];
+   let rateMap={};
+   if(role==='admin' && workers.length){
+     const {data:r,error:re}=await sb.from('employee_rates').select('employee_id,daily_rate');
+     if(re) throw re;
+     (r||[]).forEach(x=>rateMap[x.employee_id]=x.daily_rate);
+   }
+   const active=workers.filter(w=>w.active!==false);
+   $('workerCount').textContent=active.length+' عامل نشط';
+   $('workersList').innerHTML='';
+   if(!workers.length){$('workersList').innerHTML='<p class="muted">لا يوجد عمال بعد. أضف أول عامل من النموذج أعلاه.</p>';return;}
+   workers.forEach(w=>{
+     const div=document.createElement('div');div.className='worker';
+     const name=document.createElement('strong');name.textContent=w.full_name;
+     const meta=document.createElement('div');meta.className='meta';
+     meta.textContent='الوظيفة: '+(w.job_title||'غير محددة')+' · الحالة: '+(w.active?'نشط':'موقوف');
+     if(role==='admin'){
+       const rate=document.createElement('div');rate.className='meta';rate.textContent='اليومية: '+(rateMap[w.id]===undefined?'غير محددة':money(rateMap[w.id]))+' / 12 ساعة'+(rateMap[w.id]===undefined?'':' · الساعة: '+money(Number(rateMap[w.id])/12));
+       div.append(name,meta,rate);
+       const actions=document.createElement('div');actions.className='actions';
+       const edit=document.createElement('button');edit.className='secondary';edit.textContent='تعديل';edit.onclick=()=>editWorker(w,rateMap[w.id]);
+       const toggle=document.createElement('button');toggle.className=w.active?'danger':'gold';toggle.textContent=w.active?'إيقاف العامل':'إعادة تفعيل';toggle.onclick=()=>toggleWorker(w);
+       actions.append(edit,toggle);div.append(actions);
+     }else{div.append(name,meta);}
+     $('workersList').append(div);
+   });
+   fillAttendanceEmployees($('attendanceEmployee').value);
+ }
+ function localDateValue(d=new Date()){
+   const x=new Date(d.getTime()-d.getTimezoneOffset()*60000);
+   return x.toISOString().slice(0,10);
+ }
+ function toLocalInput(value){
+   if(!value)return '';
+   const d=new Date(value); if(Number.isNaN(d.getTime()))return '';
+   return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+ }
+ function fillAttendanceEmployees(selected=''){
+   const sel=$('attendanceEmployee');sel.innerHTML='<option value="">اختر العامل</option>';
+   workers.filter(w=>w.active!==false).forEach(w=>{
+     const opt=document.createElement('option');opt.value=w.id;opt.textContent=w.full_name;sel.append(opt);
+   });
+   if(selected)sel.value=selected;
+ }
+ async function loadAttendance(){
+   $('attendanceList').innerHTML='<p class="muted">جاري تحميل السجلات...</p>';
+   const {data,error}=await sb.from('attendance').select('id,employee_id,work_date,status,check_in_at,check_out_at,notes,created_by').order('work_date',{ascending:false}).limit(50);
+   if(error)throw error;
+   const names={};workers.forEach(w=>names[w.id]=w.full_name);
+   $('attendanceList').innerHTML='';
+   if(!data||!data.length){$('attendanceList').innerHTML='<p class="muted">لا توجد سجلات حضور حتى الآن.</p>';return;}
+   data.forEach(r=>{
+     const div=document.createElement('div');div.className='worker';
+     const title=document.createElement('strong');title.textContent=names[r.employee_id]||'عامل غير موجود في القائمة';
+     const status=document.createElement('div');status.className='meta';status.textContent=(r.status==='absent'?'غائب':'حاضر')+' · التاريخ: '+r.work_date;
+     const times=document.createElement('div');times.className='meta';
+     const fmt=v=>v?new Date(v).toLocaleString('ar-EG',{dateStyle:'short',timeStyle:'short'}):'—';
+     let hours='';
+     if(r.check_in_at&&r.check_out_at){const mins=Math.max(0,(new Date(r.check_out_at)-new Date(r.check_in_at))/60000);hours=' · مدة العمل: '+Math.floor(mins/60)+' ساعة '+Math.round(mins%60)+' دقيقة';}
+     times.textContent='الدخول: '+fmt(r.check_in_at)+' · الانصراف: '+fmt(r.check_out_at)+hours;
+     div.append(title,status,times);
+     if(r.notes){const note=document.createElement('div');note.className='meta';note.textContent='ملاحظات: '+r.notes;div.append(note);}
+     if(role==='admin'||r.created_by===currentUser.id){
+       const actions=document.createElement('div');actions.className='actions';
+       const edit=document.createElement('button');edit.className='secondary';edit.textContent='تعديل السجل';edit.onclick=()=>editAttendance(r);
+       actions.append(edit);div.append(actions);
+     }
+     $('attendanceList').append(div);
+   });
+ }
+ function editAttendance(r){
+   $('attendanceId').value=r.id;fillAttendanceEmployees(r.employee_id);
+   $('attendanceDate').value=r.work_date;$('attendanceStatus').value=r.status;
+   $('checkInAt').value=toLocalInput(r.check_in_at);$('checkOutAt').value=toLocalInput(r.check_out_at);
+   $('attendanceNotes').value=r.notes||'';$('attendanceTitle').textContent='تعديل سجل الحضور';
+   $('saveAttendance').textContent='حفظ التعديل';$('cancelAttendanceEdit').classList.remove('hidden');
+   $('attendanceCard').scrollIntoView({behavior:'smooth'});toggleAttendanceFields();
+ }
+ function resetAttendanceForm(){
+   $('attendanceForm').reset();$('attendanceId').value='';$('attendanceDate').value=localDateValue();
+   $('attendanceTitle').textContent='تسجيل الحضور والانصراف';$('saveAttendance').textContent='حفظ سجل الحضور';
+   $('cancelAttendanceEdit').classList.add('hidden');fillAttendanceEmployees();toggleAttendanceFields();
+ }
+ function toggleAttendanceFields(){const absent=$('attendanceStatus').value==='absent';$('attendanceTimes').classList.toggle('hidden',absent);if(absent){$('checkInAt').value='';$('checkOutAt').value='';}}
+ async function saveAttendance(e){
+   e.preventDefault();
+   const id=$('attendanceId').value,employee_id=$('attendanceEmployee').value,work_date=$('attendanceDate').value,status=$('attendanceStatus').value;
+   if(!employee_id||!work_date){setMsg('attendanceMsg','اختر العامل وتاريخ العمل.','error');return;}
+   let check_in_at=null,check_out_at=null;
+   if(status==='present'){
+     const ci=$('checkInAt').value,co=$('checkOutAt').value;
+     if(ci)check_in_at=new Date(ci).toISOString();
+     if(co)check_out_at=new Date(co).toISOString();
+     if(check_in_at&&check_out_at&&new Date(check_out_at)<=new Date(check_in_at)){setMsg('attendanceMsg','وقت الانصراف يجب أن يكون بعد وقت الدخول.','error');return;}
+     if(!check_in_at&&!check_out_at){setMsg('attendanceMsg','أدخل وقت الدخول أو الانصراف على الأقل للعامل الحاضر.','error');return;}
+   }
+   const payload={employee_id,work_date,status,check_in_at,check_out_at,notes:$('attendanceNotes').value.trim()||null};
+   $('saveAttendance').disabled=true;
+   try{
+     let result;
+     if(id)result=await sb.from('attendance').update(payload).eq('id',id);
+     else result=await sb.from('attendance').insert({...payload,created_by:currentUser.id});
+     if(result.error)throw result.error;
+     resetAttendanceForm();setMsg('attendanceMsg','تم حفظ سجل الحضور بنجاح.','success');await loadAttendance();
+   }catch(err){setMsg('attendanceMsg','تعذر حفظ الحضور: '+(err.message||'خطأ غير معروف'),'error');}
+   finally{$('saveAttendance').disabled=false;}
+ }
+  function editWorker(w,rate){
+   $('workerId').value=w.id;$('workerName').value=w.full_name;$('workerJob').value=w.job_title||'';
+   $('dailyRate').value=rate??'';$('formTitle').textContent='تعديل بيانات العامل';
+   $('saveWorker').textContent='حفظ التعديلات';$('cancelEdit').classList.remove('hidden');
+   $('workerFormCard').scrollIntoView({behavior:'smooth'});
+ }
+ function resetForm(){ $('workerForm').reset();$('workerId').value='';$('formTitle').textContent='إضافة عامل';$('saveWorker').textContent='حفظ العامل';$('cancelEdit').classList.add('hidden');$('hourlyPreview').textContent='سعر الساعة يُحسب تلقائياً: اليومية ÷ 12';}
+ async function saveWorker(e){
+   e.preventDefault(); if(role!=='admin')return;
+   const id=$('workerId').value, full_name=$('workerName').value.trim(), job_title=$('workerJob').value.trim()||null, daily=Number($('dailyRate').value);
+   if(!full_name){setMsg('workerMsg','اكتب اسم العامل.','error');return;}
+   if(!Number.isFinite(daily)||daily<0||$('dailyRate').value===''){setMsg('workerMsg','أدخل اليومية بالجنيه بشكل صحيح.','error');return;}
+   $('saveWorker').disabled=true;
+   try{
+     let employeeId=id;
+     if(id){
+       const {error}=await sb.from('employees').update({full_name,job_title}).eq('id',id);if(error)throw error;
+     }else{
+       const {data,error}=await sb.from('employees').insert({full_name,job_title,active:true}).select('id').single();if(error)throw error;employeeId=data.id;
+     }
+     const {error:rateError}=await sb.from('employee_rates').upsert({employee_id:employeeId,daily_rate:daily},{onConflict:'employee_id'});if(rateError)throw rateError;
+     resetForm();setMsg('workerMsg','تم حفظ بيانات العامل بنجاح.','success');await loadWorkers();
+   }catch(err){setMsg('workerMsg','تعذر الحفظ: '+(err.message||'خطأ غير معروف'),'error');}
+   finally{$('saveWorker').disabled=false;}
+ }
+ async function toggleWorker(w){
+   const next=!w.active;
+   if(!confirm(next?'إعادة تفعيل العامل؟':'إيقاف العامل؟'))return;
+   const {error}=await sb.from('employees').update({active:next}).eq('id',w.id);
+   if(error){setMsg('workerMsg','تعذر تحديث حالة العامل: '+error.message,'error');return;}
+   await loadWorkers();
+ }
+ $('dailyRate').addEventListener('input',()=>{const n=Number($('dailyRate').value);$('hourlyPreview').textContent=$('dailyRate').value!==''&&n>=0?'سعر الساعة: '+money(n/12):'سعر الساعة يُحسب تلقائياً: اليومية ÷ 12';});
+ $('saveConfig').onclick=async()=>{
+   const url=$('projectUrl').value.trim(),key=$('apiKey').value.trim();
+   if(!url||!key){alert('أدخل رابط المشروع وPublishable key.');return;}
+   try{localStorage.setItem('ghazl_url',url);localStorage.setItem('ghazl_key',key);await connect(url,key);}
+   catch(e){setMsg('loginMsg',e.message||String(e),'error');loginView();}
+ };
+ $('loginBtn').onclick=async()=>{
+   setMsg('loginMsg','جاري تسجيل الدخول...');
+   const {data,error}=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});
+   if(error){setMsg('loginMsg','تعذر الدخول: '+error.message,'error');return;}
+   try{await loadProfile();}catch(e){setMsg('loginMsg',e.message||String(e),'error');}
+ };
+ $('logoutBtn').onclick=async()=>{await sb.auth.signOut();currentUser=null;role=null;loginView();};
+ $('workerForm').addEventListener('submit',saveWorker);
+ $('attendanceForm').addEventListener('submit',saveAttendance);
+ $('attendanceStatus').addEventListener('change',toggleAttendanceFields);
+ $('cancelAttendanceEdit').onclick=resetAttendanceForm;
+ $('refreshAttendance').onclick=()=>loadAttendance().catch(e=>setMsg('attendanceMsg','تعذر تحميل السجلات: '+e.message,'error'));
+ $('cancelEdit').onclick=resetForm;
+ (async()=>{
+   const url=localStorage.getItem('ghazl_url'),key=localStorage.getItem('ghazl_key');
+   if(url&&key){$('projectUrl').value=url;$('apiKey').value=key;try{await connect(url,key);}catch(e){configView();setMsg('loginMsg',e.message||String(e),'error');}}
+ })();
+})();
+</script>
+</body>
+</html>
