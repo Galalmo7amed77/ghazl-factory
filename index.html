@@ -87,8 +87,9 @@ hr{border:0;border-top:1px solid var(--line);margin:16px 0}
      <div><label for="attendanceStatus">الحالة</label><select id="attendanceStatus"><option value="present">حاضر</option><option value="absent">غائب</option></select></div>
     </div>
     <div id="attendanceTimes" class="grid">
-     <div><label for="checkInAt">وقت الدخول الفعلي</label><input id="checkInAt" type="datetime-local"></div>
-     <div><label for="checkOutAt">وقت الانصراف الفعلي</label><input id="checkOutAt" type="datetime-local"></div>
+     <div><label for="checkInAt">وقت الدخول الفعلي</label><input id="checkInAt" type="time"></div>
+    
+     <div><label for="checkOutAt">وقت الانصراف الفعلي</label><input id="checkOutAt" type="time"></div>
     </div>
     <label for="attendanceNotes">ملاحظات (اختياري)</label><input id="attendanceNotes" maxlength="500" placeholder="ملاحظات عن الحضور أو التأخير">
     <div class="actions"><button class="primary" id="saveAttendance" type="submit">حفظ سجل الحضور</button><button class="secondary hidden" id="cancelAttendanceEdit" type="button">إلغاء التعديل</button></div>
